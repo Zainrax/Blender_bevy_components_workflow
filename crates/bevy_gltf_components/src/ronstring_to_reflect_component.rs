@@ -1,5 +1,5 @@
 use bevy::log::{debug, warn};
-use bevy::reflect::serde::UntypedReflectDeserializer;
+use bevy::reflect::serde::{TypedReflectDeserializer, UntypedReflectDeserializer};
 use bevy::reflect::{Reflect, TypeRegistration, TypeRegistry};
 use bevy::utils::HashMap;
 use ron::Value;
@@ -15,16 +15,13 @@ pub fn ronstring_to_reflect_component(
     let mut components: Vec<(Box<dyn Reflect>, TypeRegistration)> = Vec::new();
     // println!("ron_string {:?}", ron_string);
     for (name, value) in lookup.into_iter() {
-        let parsed_value: String;
-        match value.clone() {
-            Value::String(str) => {
-                parsed_value = str;
-            }
-            _ => parsed_value = ron::to_string(&value).unwrap().to_string(),
-        }
+        let parsed_value: String = match value.clone() {
+            Value::String(str) => str,
+            _ => ron::to_string(&value).unwrap().to_string(),
+        };
 
         if name.as_str() == "bevy_components" {
-            bevy_components_string_to_components(parsed_value, type_registry, &mut components)
+            bevy_components_string_to_components(parsed_value, type_registry, &mut components);
         } else {
             components_string_to_components(
                 name,
@@ -32,7 +29,7 @@ pub fn ronstring_to_reflect_component(
                 parsed_value,
                 type_registry,
                 &mut components,
-            )
+            );
         }
     }
     components
@@ -47,38 +44,33 @@ fn components_string_to_components(
 ) {
     let type_string = name.replace("component: ", "").trim().to_string();
     let capitalized_type_name = capitalize_first_letter(type_string.as_str());
-
     if let Some(type_registration) =
         type_registry.get_with_short_type_path(capitalized_type_name.as_str())
     {
         debug!("TYPE INFO {:?}", type_registration.type_info());
+        // Register the required types
 
-        let ron_string = format!(
-            "{{ \"{}\":{} }}",
-            type_registration.type_info().type_path(),
-            parsed_value
-        );
-
-        // usefull to determine what an entity looks like Serialized
-        /*let test_struct = CameraRenderGraph::new("name");
-        let serializer = ReflectSerializer::new(&test_struct, &type_registry);
-        let serialized =
-            ron::ser::to_string_pretty(&serializer, ron::ser::PrettyConfig::default()).unwrap();
-        println!("serialized Component {}", serialized);*/
+        let ron_string = match value {
+            Value::String(ref str) => {
+                // Remove the enclosing parentheses and parse the inner structure
+                let inner_str = str.trim_matches(|c| c == '(' || c == ')');
+                format!("{}({})", capitalized_type_name, inner_str)
+            }
+            _ => format!("{}({})", capitalized_type_name, parsed_value),
+        };
 
         debug!("component data ron string {}", ron_string);
         let mut deserializer = ron::Deserializer::from_str(ron_string.as_str())
             .expect("deserialzer should have been generated from string");
-        let reflect_deserializer = UntypedReflectDeserializer::new(type_registry);
+        let reflect_deserializer = TypedReflectDeserializer::new(type_registration, type_registry);
         let component = reflect_deserializer
             .deserialize(&mut deserializer)
-            .unwrap_or_else(|_| {
+            .unwrap_or_else(|e| {
                 panic!(
-                    "failed to deserialize component {} with value: {:?}",
-                    name, value
+                    "failed to deserialize component {} with error: {:?}",
+                    name, e
                 )
             });
-
         debug!("component {:?}", component);
         debug!("real type {:?}", component.get_represented_type_info());
         components.push((component, type_registration.clone()));

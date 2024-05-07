@@ -23,6 +23,12 @@ pub fn add_components_from_gltf_extras(world: &mut World) {
         HashMap::new();
 
     // let gltf_components_config = world.resource::<GltfComponentsConfig>();
+    {
+        let type_registry: &AppTypeRegistry = world.resource();
+        let mut type_registry = type_registry.write();
+        type_registry.register::<Vec<String>>();
+        type_registry.register::<HashMap<String, Vec<String>>>();
+    }
 
     for (entity, name, extra, parent) in extras.iter(world) {
         debug!(

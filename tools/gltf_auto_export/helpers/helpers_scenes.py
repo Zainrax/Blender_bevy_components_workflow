@@ -1,5 +1,6 @@
 import json
 import bpy
+from pprint import pprint
 from .object_makers import (make_empty)
 
 
@@ -15,6 +16,7 @@ def is_component_valid(object, component_name):
     return True
 
 def remove_unwanted_custom_properties(object):
+
     to_remove = []
     component_names = list(object.keys()) # to avoid 'IDPropertyGroup changed size during iteration' issues
     for component_name in component_names:
