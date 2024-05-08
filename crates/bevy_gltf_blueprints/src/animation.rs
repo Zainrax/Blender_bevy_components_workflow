@@ -71,147 +71,224 @@ pub struct AnimationMarkerReached {
     pub marker_name: String,
 }
 
-/////////////////////
+#[derive(Component)]
+pub struct CurrentAnimationInfo {
+    pub animation_name: String,
+    pub animation_length_seconds: f32,
+    pub animation_length_frames: f32,
+    pub last_triggered_markers: HashMap<String, u32>,
+}
 
-/// triggers events when a given animation marker is reached for INSTANCE animations
-pub fn trigger_instance_animation_markers_events(
-    animation_infos: Query<(
-        Entity,
-        &AnimationMarkers,
-        &SceneAnimationPlayerLink,
-        &SceneAnimations,
-        &AnimationInfos,
-    )>,
-    animation_players: Query<&AnimationPlayer>,
-    animation_clips: Res<Assets<AnimationClip>>,
-    mut animation_marker_events: EventWriter<AnimationMarkerReached>,
+#[allow(clippy::too_many_arguments)]
+fn trigger_animation_marker_events(
+    commands: &mut Commands,
+    entity: Entity,
+    animation_name: &str,
+    animation_length_seconds: f32,
+    animation_length_frames: f32,
+    frame: u32,
+    markers: &AnimationMarkers,
+    current_animation_info: Option<&CurrentAnimationInfo>,
+    animation_marker_events: &mut EventWriter<AnimationMarkerReached>,
 ) {
-    for (entity, markers, link, animations, animation_infos) in animation_infos.iter() {
-        let animation_player = animation_players.get(link.0).unwrap();
-        let animation_clip = animation_clips.get(animation_player.animation_clip());
-
-        if animation_clip.is_some() {
-            // println!("Entity {:?} markers {:?}", entity, markers);
-            // println!("Player {:?} {}", animation_player.elapsed(), animation_player.completions());
-            // FIMXE: yikes ! very inneficient ! perhaps add boilerplate to the "start playing animation" code so we know what is playing
-            let animation_name = animations.named_animations.iter().find_map(|(key, value)| {
-                if value == animation_player.animation_clip() {
-                    Some(key)
-                } else {
-                    None
-                }
-            });
-            if animation_name.is_some() {
-                let animation_name = animation_name.unwrap();
-
-                let animation_length_seconds = animation_clip.unwrap().duration();
-                let animation_length_frames = animation_infos
-                    .animations
-                    .iter()
-                    .find(|anim| &anim.name == animation_name)
-                    .unwrap()
-                    .frames_length;
-                // TODO: we also need to take playback speed into account
-                let time_in_animation = animation_player.elapsed()
-                    - (animation_player.completions() as f32) * animation_length_seconds;
-                let frame_seconds =
-                    (animation_length_frames / animation_length_seconds) * time_in_animation;
-                let frame = frame_seconds as u32;
-
-                let matching_animation_marker = &markers.0[animation_name];
-                if matching_animation_marker.contains_key(&frame) {
-                    let matching_markers_per_frame = matching_animation_marker.get(&frame).unwrap();
-
-                    // let timediff = animation_length_seconds - time_in_animation;
-                    // println!("timediff {}", timediff);
-                    // println!("FOUND A MARKER {:?} at frame {}", matching_markers_per_frame, frame);
-                    // emit an event AnimationMarkerReached(entity, animation_name, frame, marker_name)
-                    // FIXME: problem, this can fire multiple times in a row, depending on animation length , speed , etc
-                    for marker in matching_markers_per_frame {
+    if let Some(matching_animation_marker) = markers.0.get(animation_name) {
+        if let Some(matching_markers_per_frame) = matching_animation_marker.get(&frame) {
+            for marker in matching_markers_per_frame {
+                if let Some(current_info) = current_animation_info {
+                    if let Some(last_triggered_frame) =
+                        current_info.last_triggered_markers.get(marker)
+                    {
+                        if frame > *last_triggered_frame {
+                            animation_marker_events.send(AnimationMarkerReached {
+                                entity,
+                                animation_name: animation_name.to_string(),
+                                frame,
+                                marker_name: marker.clone(),
+                            });
+                            commands.entity(entity).insert(CurrentAnimationInfo {
+                                animation_name: animation_name.to_string(),
+                                animation_length_seconds,
+                                animation_length_frames,
+                                last_triggered_markers: {
+                                    let mut markers = current_info.last_triggered_markers.clone();
+                                    markers.insert(marker.clone(), frame);
+                                    markers
+                                },
+                            });
+                        }
+                    } else {
                         animation_marker_events.send(AnimationMarkerReached {
                             entity,
-                            animation_name: animation_name.clone(),
+                            animation_name: animation_name.to_string(),
                             frame,
                             marker_name: marker.clone(),
                         });
+                        commands.entity(entity).insert(CurrentAnimationInfo {
+                            animation_name: animation_name.to_string(),
+                            animation_length_seconds,
+                            animation_length_frames,
+                            last_triggered_markers: {
+                                let mut markers = current_info.last_triggered_markers.clone();
+                                markers.insert(marker.clone(), frame);
+                                markers
+                            },
+                        });
                     }
+                } else {
+                    animation_marker_events.send(AnimationMarkerReached {
+                        entity,
+                        animation_name: animation_name.to_string(),
+                        frame,
+                        marker_name: marker.clone(),
+                    });
+                    commands.entity(entity).insert(CurrentAnimationInfo {
+                        animation_name: animation_name.to_string(),
+                        animation_length_seconds,
+                        animation_length_frames,
+                        last_triggered_markers: {
+                            let mut markers = HashMap::new();
+                            markers.insert(marker.clone(), frame);
+                            markers
+                        },
+                    });
                 }
             }
         }
     }
 }
 
-/// triggers events when a given animation marker is reached for BLUEPRINT animations
-pub fn trigger_blueprint_animation_markers_events(
-    animation_infos: Query<(Entity, &BlueprintAnimationPlayerLink, &BlueprintAnimations)>,
-    // FIXME: annoying hiearchy issue yet again: the Markers & AnimationInfos are stored INSIDE the blueprint, so we need to access them differently
-    all_animation_infos: Query<(Entity, &AnimationMarkers, &AnimationInfos, &Parent)>,
+pub fn trigger_instance_animation_markers_events(
+    mut commands: Commands,
+    blueprint_animation_infos: Query<(
+        Entity,
+        &AnimationMarkers,
+        &SceneAnimationPlayerLink,
+        &SceneAnimations,
+        Option<&CurrentAnimationInfo>,
+    )>,
     animation_players: Query<&AnimationPlayer>,
     animation_clips: Res<Assets<AnimationClip>>,
     mut animation_marker_events: EventWriter<AnimationMarkerReached>,
 ) {
-    for (entity, link, animations) in animation_infos.iter() {
+    for (entity, markers, link, animations, current_animation_info) in
+        blueprint_animation_infos.iter()
+    {
         let animation_player = animation_players.get(link.0).unwrap();
         let animation_clip = animation_clips.get(animation_player.animation_clip());
 
-        // FIXME: horrible code
-        for (_, markers, animation_infos, parent) in all_animation_infos.iter() {
-            if parent.get() == entity {
-                if animation_clip.is_some() {
-                    // println!("Entity {:?} markers {:?}", entity, markers);
-                    // println!("Player {:?} {}", animation_player.elapsed(), animation_player.completions());
-                    // FIMXE: yikes ! very inneficient ! perhaps add boilerplate to the "start playing animation" code so we know what is playing
-                    let animation_name =
-                        animations.named_animations.iter().find_map(|(key, value)| {
-                            if value == animation_player.animation_clip() {
-                                Some(key)
-                            } else {
-                                None
-                            }
-                        });
-                    if animation_name.is_some() {
-                        let animation_name = animation_name.unwrap();
-                        let animation_length_seconds = animation_clip.unwrap().duration();
-                        let animation_length_frames = animation_infos
+        if let Some(animation_clip) = animation_clip {
+            let animation_name = animations
+                .named_animations
+                .iter()
+                .find_map(|(key, value)| {
+                    if value == animation_player.animation_clip() {
+                        Some(key.clone())
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or_default();
+
+            let animation_length_seconds = animation_clip.duration();
+            let animation_length_frames = current_animation_info
+                .map(|info| info.animation_length_frames)
+                .unwrap_or_default();
+
+            let time_in_animation = animation_player.elapsed()
+                - (animation_player.completions() as f32) * animation_length_seconds;
+            let frame_seconds =
+                (animation_length_frames / animation_length_seconds) * time_in_animation;
+            let frame = frame_seconds as u32;
+
+            trigger_animation_marker_events(
+                &mut commands,
+                entity,
+                &animation_name,
+                animation_length_seconds,
+                animation_length_frames,
+                frame,
+                markers,
+                current_animation_info,
+                &mut animation_marker_events,
+            );
+        }
+    }
+}
+
+pub fn trigger_blueprint_animation_markers_events(
+    mut commands: Commands,
+    blueprint_animation_infos: Query<(
+        Entity,
+        &BlueprintAnimationPlayerLink,
+        &BlueprintAnimations,
+        Option<&CurrentAnimationInfo>,
+    )>,
+    animation_markers_and_infos: Query<(Entity, &AnimationMarkers, &AnimationInfos, &Parent)>,
+    animation_players: Query<&AnimationPlayer>,
+    animation_clips: Res<Assets<AnimationClip>>,
+    mut animation_marker_events: EventWriter<AnimationMarkerReached>,
+) {
+    for (entity, link, animations, current_animation_info) in blueprint_animation_infos.iter() {
+        let animation_player = animation_players.get(link.0).unwrap();
+        let animation_clip = animation_clips.get(animation_player.animation_clip());
+
+        if let Some(animation_clip) = animation_clip {
+            let animation_name = animations
+                .named_animations
+                .iter()
+                .find_map(|(key, value)| {
+                    if value == animation_player.animation_clip() {
+                        Some(key.clone())
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or_default();
+
+            let animation_length_seconds = animation_clip.duration();
+            let animation_length_frames = animation_markers_and_infos
+                .iter()
+                .find_map(|(_, _, animation_infos, parent)| {
+                    if parent.get() == entity {
+                        animation_infos
                             .animations
                             .iter()
-                            .find(|anim| &anim.name == animation_name)
-                            .unwrap()
-                            .frames_length;
-                        // TODO: we also need to take playback speed into account
-                        let time_in_animation = animation_player.elapsed()
-                            - (animation_player.completions() as f32) * animation_length_seconds;
-                        let frame_seconds = (animation_length_frames / animation_length_seconds)
-                            * time_in_animation;
-                        // println!("frame seconds {}", frame_seconds);
-                        let frame = frame_seconds.ceil() as u32; // FIXME , bad hack
-
-                        let matching_animation_marker = &markers.0[animation_name];
-
-                        if matching_animation_marker.contains_key(&frame) {
-                            let matching_markers_per_frame =
-                                matching_animation_marker.get(&frame).unwrap();
-                            // println!("FOUND A MARKER {:?} at frame {}", matching_markers_per_frame, frame);
-                            // emit an event AnimationMarkerReached(entity, animation_name, frame, marker_name)
-                            // FIXME: complete hack-ish solution , otherwise this can fire multiple times in a row, depending on animation length , speed , etc
-                            let diff = frame as f32 - frame_seconds;
-                            println!("diff {}", diff);
-                            if diff < 0.1 {
-                                for marker in matching_markers_per_frame {
-                                    animation_marker_events.send(AnimationMarkerReached {
-                                        entity,
-                                        animation_name: animation_name.clone(),
-                                        frame,
-                                        marker_name: marker.clone(),
-                                    });
-                                }
-                            }
-                        }
+                            .find(|anim| anim.name == animation_name)
+                            .map(|anim| anim.frames_length)
+                    } else {
+                        None
                     }
-                }
+                })
+                .unwrap_or_default();
 
-                break;
-            }
+            let time_in_animation = animation_player.elapsed()
+                - (animation_player.completions() as f32) * animation_length_seconds;
+            let frame_seconds =
+                (animation_length_frames / animation_length_seconds) * time_in_animation;
+            let frame = frame_seconds.ceil() as u32;
+
+            let markers = animation_markers_and_infos
+                .iter()
+                .find_map(|(_, markers, _, parent)| {
+                    if parent.get() == entity {
+                        Some(markers)
+                    } else {
+                        None
+                    }
+                })
+                .expect("No markers found for animation");
+
+            trigger_animation_marker_events(
+                &mut commands,
+                entity,
+                &animation_name,
+                animation_length_seconds,
+                animation_length_frames,
+                frame,
+                markers,
+                current_animation_info,
+                &mut animation_marker_events,
+            );
         }
     }
 }

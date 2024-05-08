@@ -73,7 +73,7 @@ def process_component(registry, definition, update, extras=None, nesting = [], n
     }
     #FIXME: YIKES, but have not found another way: 
     """ Withouth this ; the following does not work
-    -BasicTest
+    - BasicTest
     - NestingTestLevel2
         -BasicTest => the registration & update callback of this one overwrites the first "basicTest"
     have not found a cleaner workaround so far
