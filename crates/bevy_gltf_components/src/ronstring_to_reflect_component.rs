@@ -1,4 +1,4 @@
-use bevy::log::{debug, warn};
+use bevy::log::{debug, info, warn};
 use bevy::reflect::serde::{TypedReflectDeserializer, UntypedReflectDeserializer};
 use bevy::reflect::{Reflect, TypeRegistration, TypeRegistry};
 use bevy::utils::HashMap;
@@ -47,7 +47,7 @@ fn components_string_to_components(
     if let Some(type_registration) =
         type_registry.get_with_short_type_path(capitalized_type_name.as_str())
     {
-        debug!("TYPE INFO {:?}", type_registration.type_info());
+        info!("TYPE INFO {:?}", type_registration.type_info());
         // Register the required types
 
         let ron_string = match value {
@@ -59,7 +59,7 @@ fn components_string_to_components(
             _ => format!("{}({})", capitalized_type_name, parsed_value),
         };
 
-        debug!("component data ron string {}", ron_string);
+        info!("component data ron string {}", ron_string);
         let mut deserializer = ron::Deserializer::from_str(ron_string.as_str())
             .expect("deserialzer should have been generated from string");
         let reflect_deserializer = TypedReflectDeserializer::new(type_registration, type_registry);
@@ -71,10 +71,10 @@ fn components_string_to_components(
                     name, e
                 )
             });
-        debug!("component {:?}", component);
-        debug!("real type {:?}", component.get_represented_type_info());
+        info!("component {:?}", component);
+        info!("real type {:?}", component.get_represented_type_info());
         components.push((component, type_registration.clone()));
-        debug!("found type registration for {}", capitalized_type_name);
+        info!("found type registration for {}", capitalized_type_name);
     } else {
         warn!("no type registration for {}", capitalized_type_name);
     }
@@ -87,13 +87,10 @@ fn bevy_components_string_to_components(
 ) {
     let lookup: HashMap<String, Value> = ron::from_str(&parsed_value).unwrap();
     for (key, value) in lookup.into_iter() {
-        let parsed_value: String;
-        match value.clone() {
-            Value::String(str) => {
-                parsed_value = str;
-            }
-            _ => parsed_value = ron::to_string(&value).unwrap().to_string(),
-        }
+        let parsed_value = match value.clone() {
+            Value::String(str) => str,
+            _ => ron::to_string(&value).unwrap().to_string(),
+        };
 
         if let Some(type_registration) = type_registry.get_with_type_path(key.as_str()) {
             debug!("TYPE INFO {:?}", type_registration.type_info());
