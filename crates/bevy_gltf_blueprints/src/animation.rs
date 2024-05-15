@@ -157,6 +157,36 @@ fn trigger_animation_marker_events(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
+fn handle_animation_marker_events(
+    commands: &mut Commands,
+    entity: Entity,
+    animation_player: &AnimationPlayer,
+    animation_name: &str,
+    animation_length_seconds: f32,
+    animation_length_frames: f32,
+    markers: &AnimationMarkers,
+    current_animation_info: Option<&CurrentAnimationInfo>,
+    animation_marker_events: &mut EventWriter<AnimationMarkerReached>,
+) {
+    let time_in_animation = animation_player.elapsed()
+        - (animation_player.completions() as f32) * animation_length_seconds;
+    let frame_seconds = (animation_length_frames / animation_length_seconds) * time_in_animation;
+    let frame = frame_seconds as u32;
+
+    trigger_animation_marker_events(
+        commands,
+        entity,
+        animation_name,
+        animation_length_seconds,
+        animation_length_frames,
+        frame,
+        markers,
+        current_animation_info,
+        animation_marker_events,
+    );
+}
+
 pub fn trigger_instance_animation_markers_events(
     mut commands: Commands,
     blueprint_animation_infos: Query<(
@@ -194,19 +224,13 @@ pub fn trigger_instance_animation_markers_events(
                 .map(|info| info.animation_length_frames)
                 .unwrap_or_default();
 
-            let time_in_animation = animation_player.elapsed()
-                - (animation_player.completions() as f32) * animation_length_seconds;
-            let frame_seconds =
-                (animation_length_frames / animation_length_seconds) * time_in_animation;
-            let frame = frame_seconds as u32;
-
-            trigger_animation_marker_events(
+            handle_animation_marker_events(
                 &mut commands,
                 entity,
+                animation_player,
                 &animation_name,
                 animation_length_seconds,
                 animation_length_frames,
-                frame,
                 markers,
                 current_animation_info,
                 &mut animation_marker_events,
@@ -261,12 +285,6 @@ pub fn trigger_blueprint_animation_markers_events(
                 })
                 .unwrap_or_default();
 
-            let time_in_animation = animation_player.elapsed()
-                - (animation_player.completions() as f32) * animation_length_seconds;
-            let frame_seconds =
-                (animation_length_frames / animation_length_seconds) * time_in_animation;
-            let frame = frame_seconds.ceil() as u32;
-
             let markers = animation_markers_and_infos
                 .iter()
                 .find_map(|(_, markers, _, parent)| {
@@ -278,13 +296,13 @@ pub fn trigger_blueprint_animation_markers_events(
                 })
                 .expect("No markers found for animation");
 
-            trigger_animation_marker_events(
+            handle_animation_marker_events(
                 &mut commands,
                 entity,
+                animation_player,
                 &animation_name,
                 animation_length_seconds,
                 animation_length_frames,
-                frame,
                 markers,
                 current_animation_info,
                 &mut animation_marker_events,
