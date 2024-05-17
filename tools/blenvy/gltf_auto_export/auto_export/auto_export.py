@@ -27,17 +27,17 @@ def auto_export(changes_per_scene, changed_export_parameters, addon_prefs):
         file_path = bpy.data.filepath
         # Get the folder
         blend_file_path = os.path.dirname(file_path)
-
+        
+        print("settings", dict(addon_prefs))
         # get the preferences for our addon
-        export_root_path = getattr(addon_prefs, "export_root_path")
-        export_assets_path = getattr(addon_prefs,"export_assets_path")
+        project_root_path = getattr(addon_prefs, "project_root_path")
+        assets_path = getattr(addon_prefs,"assets_path")
 
         #should we use change detection or not 
-        export_change_detection = getattr(addon_prefs, "export_change_detection")
-        export_scene_settings = getattr(addon_prefs,"export_scene_settings")
-
-        do_export_blueprints = getattr(addon_prefs,"export_blueprints")
-        export_materials_library = getattr(addon_prefs,"export_materials_library")
+        change_detection = getattr(addon_prefs.auto_export, "change_detection")
+        export_scene_settings = getattr(addon_prefs.auto_export,"export_scene_settings")
+        do_export_blueprints = getattr(addon_prefs.auto_export,"export_blueprints")
+        export_materials_library = getattr(addon_prefs.auto_export,"export_materials_library")
         print("export_materials_library", export_materials_library)
 
         # standard gltf export settings are stored differently
@@ -45,26 +45,11 @@ def auto_export(changes_per_scene, changed_export_parameters, addon_prefs):
         gltf_extension = standard_gltf_exporter_settings.get("export_format", 'GLB')
         gltf_extension = '.glb' if gltf_extension == 'GLB' else '.gltf'
        
-        # here we do a bit of workaround by creating an override # TODO: do this at the "UI" level
-        print("collection_instances_combine_mode", addon_prefs.collection_instances_combine_mode)
-        """if hasattr(addon_prefs, "__annotations__") :
-            tmp = {}
-            for k in AutoExportGltfAddonPreferences.__annotations__:
-                item = AutoExportGltfAddonPreferences.__annotations__[k]
-                #print("tutu",k, item.keywords.get('default', None) )
-                default = item.keywords.get('default', None)
-                tmp[k] = default
-            
-            for (k, v) in addon_prefs.properties.items():
-                tmp[k] = v
-
-            addon_prefs = SimpleNamespace(**tmp) #copy.deepcopy(addon_prefs)
-            addon_prefs.__annotations__ = tmp"""
         # generate the actual complete output paths
-        addon_prefs.export_assets_path_full = os.path.join(blend_file_path, export_root_path, export_assets_path)
-        addon_prefs.export_blueprints_path_full = os.path.join(addon_prefs.export_assets_path_full, getattr(addon_prefs,"export_blueprints_path"))
-        addon_prefs.export_levels_path_full = os.path.join(addon_prefs.export_assets_path_full, getattr(addon_prefs,"export_levels_path"))
-        addon_prefs.export_materials_path_full = os.path.join(addon_prefs.export_assets_path_full, getattr(addon_prefs,"export_materials_path"))
+        addon_prefs.export_assets_path_full = os.path.join(blend_file_path, project_root_path, assets_path)
+        addon_prefs.export_blueprints_path_full = os.path.join(addon_prefs.export_assets_path_full, getattr(addon_prefs,"blueprints_path"))
+        addon_prefs.export_levels_path_full = os.path.join(addon_prefs.export_assets_path_full, getattr(addon_prefs,"levels_path"))
+        addon_prefs.export_materials_path_full = os.path.join(addon_prefs.export_assets_path_full, getattr(addon_prefs,"materials_path"))
         addon_prefs.export_gltf_extension = gltf_extension
 
         [main_scene_names, level_scenes, library_scene_names, library_scenes] = get_scenes(addon_prefs)
@@ -76,11 +61,11 @@ def auto_export(changes_per_scene, changed_export_parameters, addon_prefs):
 
 
         # we inject the blueprints export path
-        export_blueprints_path = getattr(addon_prefs,"export_blueprints_path")
-        inject_export_path_into_internal_blueprints(internal_blueprints=blueprints_data.internal_blueprints, export_blueprints_path=export_blueprints_path, gltf_extension=gltf_extension)
+        blueprints_path = getattr(addon_prefs,"blueprints_path")
+        inject_export_path_into_internal_blueprints(internal_blueprints=blueprints_data.internal_blueprints, blueprints_path=blueprints_path, gltf_extension=gltf_extension)
         for blueprint in blueprints_data.blueprints:
             bpy.context.window_manager.blueprints_registry.add_blueprint(blueprint)
-        bpy.context.window_manager.blueprints_registry.add_blueprints_data()
+        #bpy.context.window_manager.blueprints_registry.add_blueprints_data()
 
         if export_scene_settings:
             # inject/ update scene components
@@ -92,7 +77,7 @@ def auto_export(changes_per_scene, changed_export_parameters, addon_prefs):
 
         # export
         if do_export_blueprints:
-            print("EXPORTING")
+            print("EXPORTING", blueprints_data)
             # get blueprints/collections infos
             (blueprints_to_export) = get_blueprints_to_export(changes_per_scene, changed_export_parameters, blueprints_data, addon_prefs)
              
@@ -137,7 +122,7 @@ def auto_export(changes_per_scene, changed_export_parameters, addon_prefs):
                     export_main_scene(bpy.data.scenes[scene_name], blend_file_path, addon_prefs, blueprints_data)
 
             # now deal with blueprints/collections
-            do_export_library_scene = not export_change_detection or changed_export_parameters or len(blueprints_to_export) > 0
+            do_export_library_scene = not change_detection or changed_export_parameters or len(blueprints_to_export) > 0
             if do_export_library_scene:
                 print("export LIBRARY")
                 export_blueprints(blueprints_to_export, addon_prefs, blueprints_data)
