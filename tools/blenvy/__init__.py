@@ -15,7 +15,6 @@ import bpy
 from bpy.app.handlers import persistent
 from bpy.props import (StringProperty)
 
-
 # components management 
 from .bevy_components.components.operators import CopyComponentOperator, Fix_Component_Operator, OT_rename_component, RemoveComponentFromAllObjectsOperator, RemoveComponentOperator, GenerateComponent_From_custom_property_Operator, PasteComponentOperator, AddComponentOperator, RenameHelper, Toggle_ComponentVisibility
 
@@ -33,29 +32,16 @@ from .bevy_components.components.ui import (BEVY_COMPONENTS_PT_ComponentsPanel)
 from .gltf_auto_export import gltf_post_export_callback
 from .gltf_auto_export.auto_export.operators import AutoExportGLTF
 from .gltf_auto_export.auto_export.tracker import AutoExportTracker
-from .gltf_auto_export.auto_export.preferences import (AutoExportGltfAddonPreferences)
-
-from .gltf_auto_export.auto_export.internals import (SceneLink,
-                        SceneLinks,
-                        CollectionToExport,
-                        BlueprintsToExport,
-                        CUSTOM_PG_sceneName
-                        )
-from .gltf_auto_export.ui.main import (GLTF_PT_auto_export_change_detection, GLTF_PT_auto_export_changes_list, GLTF_PT_auto_export_main,
+from .gltf_auto_export.ui.main import (GLTF_PT_auto_export_change_detection, GLTF_PT_auto_export_main,
                       GLTF_PT_auto_export_root,
                       GLTF_PT_auto_export_general,
-                      GLTF_PT_auto_export_scenes,
                       GLTF_PT_auto_export_blueprints,
-                      SCENE_UL_GLTF_auto_export,
-
                       GLTF_PT_auto_export_SidePanel
                       )
-from .gltf_auto_export.ui.operators import (OT_OpenFolderbrowser, SCENES_LIST_OT_actions)
-
 # asset management
-from .assets.ui import GLTF_PT_auto_export_assets
-from .assets.assets_registry import AssetsRegistry
-from .assets.operators import OT_Add_asset_filebrowser, OT_add_bevy_asset, OT_remove_bevy_asset
+from .assets.ui import Blenvy_assets
+from .assets.assets_registry import Asset, AssetsRegistry
+from .assets.operators import OT_Add_asset_filebrowser, OT_add_bevy_asset, OT_remove_bevy_asset, OT_test_bevy_assets
 
 # blueprints management
 from .blueprints.ui import GLTF_PT_auto_export_blueprints_list
@@ -63,9 +49,12 @@ from .blueprints.blueprints_registry import BlueprintsRegistry
 from .blueprints.operators import OT_select_blueprint
 
 # blenvy core
-from .core.ui import BLENVY_PT_SidePanel
 from .core.blenvy_manager import BlenvyManager
 from .core.operators import OT_switch_bevy_tooling
+from .core.scene_helpers import (SceneSelector)
+from .core.ui.ui import (BLENVY_PT_SidePanel)
+from .core.ui.scenes_list import SCENES_LIST_OT_actions, SCENE_UL_Blenvy
+from .core.ui.folder_browser import OT_OpenFolderbrowser
 
 
 # this needs to be here, as it is how Blender's gltf exporter callbacks are defined, at the add-on root level
@@ -74,6 +63,12 @@ def glTF2_post_export_callback(data):
     
 
 classes = [
+    # common/core
+    SceneSelector,
+    SCENE_UL_Blenvy,
+    SCENES_LIST_OT_actions,
+    OT_OpenFolderbrowser,
+
     # blenvy
     BLENVY_PT_SidePanel,
 
@@ -122,23 +117,13 @@ classes = [
     GENERIC_MAP_OT_actions,
 
     # gltf auto export
-    SceneLink,
-    SceneLinks,
-    CUSTOM_PG_sceneName,
-    SCENE_UL_GLTF_auto_export,
-    SCENES_LIST_OT_actions,
-
-    OT_OpenFolderbrowser,
     AutoExportGLTF, 
 
-    CollectionToExport,
-    BlueprintsToExport,
 
     GLTF_PT_auto_export_main,
     GLTF_PT_auto_export_root,
     GLTF_PT_auto_export_general,
     GLTF_PT_auto_export_change_detection,
-    GLTF_PT_auto_export_scenes,
     GLTF_PT_auto_export_blueprints,
     GLTF_PT_auto_export_SidePanel,
     AutoExportTracker,
@@ -147,11 +132,13 @@ classes = [
     BlenvyManager,
     OT_switch_bevy_tooling,
 
+    Asset,
     AssetsRegistry,
     OT_add_bevy_asset,
     OT_remove_bevy_asset,
+    OT_test_bevy_assets,
     OT_Add_asset_filebrowser,
-    GLTF_PT_auto_export_assets,
+    Blenvy_assets,
 
     BlueprintsRegistry,
     OT_select_blueprint,

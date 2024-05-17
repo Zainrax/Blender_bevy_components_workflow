@@ -4,6 +4,10 @@ import bpy
 from bpy_types import (Operator)
 from bpy.props import (BoolProperty, StringProperty, EnumProperty)
 
+from .asset_helpers import does_asset_exist, get_user_assets, remove_asset, upsert_asset
+from .assets_scan import get_main_scene_assets_tree
+
+from ..core.path_helpers import absolute_path_from_blend_file
 from ..settings import load_settings
 
 class OT_add_bevy_asset(Operator):
@@ -50,24 +54,26 @@ class OT_add_bevy_asset(Operator):
     def execute(self, context):
         assets = []
         blueprint_assets = self.target_type == 'BLUEPRINT'
+        target = None
         if blueprint_assets:
-            assets = json.loads(bpy.data.collections[self.target_name].get('assets')) if 'assets' in bpy.data.collections[self.target_name] else []
+            target = bpy.data.collections[self.target_name]
         else:
-            assets = json.loads(bpy.data.scenes[self.target_name].get('assets')) if 'assets' in bpy.data.scenes[self.target_name] else []
+            target = bpy.data.scenes[self.target_name]
+        assets = get_user_assets(target)
+        asset = {"name": self.asset_name, "type": self.asset_type, "path": self.asset_path}
+        if not does_asset_exist(target, asset):
+            upsert_asset(target, asset)
 
-        in_list = [asset for asset in assets if (asset["path"] == self.asset_path)]
-        in_list = len(in_list) > 0
-        if not in_list:
-            assets.append({"name": self.asset_name, "type": self.asset_type, "path": self.asset_path, "internal": False})
+            #assets.append({"name": self.asset_name, "type": self.asset_type, "path": self.asset_path, "internal": False})
             # reset controls
             context.window_manager.assets_registry.asset_name_selector = ""
             context.window_manager.assets_registry.asset_type_selector = "MODEL"
             context.window_manager.assets_registry.asset_path_selector = ""
 
-        if blueprint_assets:
+        """if blueprint_assets:
             bpy.data.collections[self.target_name]["assets"] = json.dumps(assets)
         else:
-            bpy.data.scenes[self.target_name]["assets"] = json.dumps(assets)
+            bpy.data.scenes[self.target_name]["assets"] = json.dumps(assets)"""
 
         return {'FINISHED'}
     
@@ -111,16 +117,11 @@ class OT_remove_bevy_asset(Operator):
         assets = []
         blueprint_assets = self.target_type == 'BLUEPRINT'
         if blueprint_assets:
-            assets = json.loads(bpy.data.collections[self.target_name].get('assets')) if 'assets' in bpy.data.collections[self.target_name] else []
+            target = bpy.data.collections[self.target_name]
         else:
-            assets = json.loads(bpy.data.scenes[self.target_name].get('assets')) if 'assets' in bpy.data.scenes[self.target_name] else []
-
-        assets = [asset for asset in assets if (asset["path"] != self.asset_path)]
-        if blueprint_assets:
-            bpy.data.collections[self.target_name]["assets"] = json.dumps(assets)
-        else:
-            bpy.data.scenes[self.target_name]["assets"] = json.dumps(assets)
-        #context.window_manager.assets_registry.remove_asset(self.asset_path)
+            target = bpy.data.scenes[self.target_name]
+        remove_asset(target, {"path": self.asset_path})
+       
         return {'FINISHED'}
     
 
@@ -148,13 +149,66 @@ class OT_Add_asset_filebrowser(Operator, ImportHelper):
         export_assets_path = current_auto_settings.get("export_assets_path", "assets")
         # FIXME: not sure
         print("export_root_path", export_root_path, "export_assets_path", export_assets_path)
-        export_assets_path_absolute = os.path.join(export_root_path, export_assets_path)
-        asset_path = os.path.relpath(self.filepath, export_assets_path_absolute)
+        export_assets_path_absolute = absolute_path_from_blend_file(os.path.join(export_root_path, export_assets_path))
 
+        asset_path = os.path.relpath(self.filepath, export_assets_path_absolute)
+        print("asset path", asset_path)
 
         assets_registry = context.window_manager.assets_registry
         assets_registry.asset_path_selector = asset_path
 
         print("SELECTED ASSET PATH", asset_path)
         
+        return {'FINISHED'}
+    
+
+
+from types import SimpleNamespace
+
+
+def write_ron_assets_file(level_name, assets_hierarchy, internal_only=False):
+    # just for testing, this uses the format of bevy_asset_loader's asset files
+    '''
+            ({
+        "world":File (path: "models/StartLevel.glb"),
+        "level1":File (path: "models/Level1.glb"),
+        "level2":File (path: "models/Level2.glb"),
+
+        "models": Folder (
+            path: "models/library",
+        ),
+        "materials": Folder (
+            path: "materials",
+        ),
+    })
+    '''
+    formated_assets = []
+    for asset in assets_hierarchy:
+        if asset["internal"] or not internal_only:
+            bla = f'\n    "{asset["name"]}": File ( path: "{asset["path"]}" ),'
+            formated_assets.append(bla)
+    with open(f"testing/bevy_example/assets/assets_{level_name}.assets.ron", "w") as assets_file:
+        assets_file.write("({")
+        assets_file.writelines(formated_assets)
+        assets_file.write("\n})")
+
+class OT_test_bevy_assets(Operator):
+    """Test assets"""
+    bl_idname = "bevyassets.test"
+    bl_label = "test bevy assets"
+    bl_options = {"UNDO"}
+
+    def execute(self, context):
+        blueprints_registry = context.window_manager.blueprints_registry
+        blueprints_registry.add_blueprints_data()
+        blueprints_data = blueprints_registry.blueprints_data
+
+        settings = {"export_blueprints_path": "blueprints", "export_gltf_extension": ".glb"}
+        settings = SimpleNamespace(**settings)
+        for scene in bpy.data.scenes:
+                if scene.name != "Library":
+                    assets_hierarchy = get_main_scene_assets_tree(scene, blueprints_data, settings)
+                    scene["assets"] = json.dumps(assets_hierarchy)
+                    write_ron_assets_file(scene.name, assets_hierarchy, internal_only=False)
+
         return {'FINISHED'}
