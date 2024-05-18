@@ -200,7 +200,7 @@ class OT_test_bevy_assets(Operator):
 
     def execute(self, context):
         blueprints_registry = context.window_manager.blueprints_registry
-        blueprints_registry.add_blueprints_data()
+        blueprints_registry.initialize_blueprints_data()
         blueprints_data = blueprints_registry.blueprints_data
 
         settings = {"blueprints_path": "blueprints", "export_gltf_extension": ".glb"}

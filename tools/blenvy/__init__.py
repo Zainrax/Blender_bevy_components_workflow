@@ -13,21 +13,30 @@ bl_info = {
 
 import bpy
 from bpy.app.handlers import persistent
-from bpy.props import (StringProperty)
-
+from bpy.props import StringProperty
 
 # components management 
-from .bevy_components.components.operators import CopyComponentOperator, Fix_Component_Operator, OT_rename_component, RemoveComponentFromAllObjectsOperator, RemoveComponentOperator, GenerateComponent_From_custom_property_Operator, PasteComponentOperator, AddComponentOperator, RenameHelper, Toggle_ComponentVisibility
-
-from .bevy_components.registry.registry import ComponentsRegistry,MissingBevyType
-from .bevy_components.registry.operators import (COMPONENTS_OT_REFRESH_CUSTOM_PROPERTIES_ALL, COMPONENTS_OT_REFRESH_CUSTOM_PROPERTIES_CURRENT, COMPONENTS_OT_REFRESH_PROPGROUPS_FROM_CUSTOM_PROPERTIES_ALL, COMPONENTS_OT_REFRESH_PROPGROUPS_FROM_CUSTOM_PROPERTIES_CURRENT, OT_select_component_name_to_replace, OT_select_object, ReloadRegistryOperator, OT_OpenSchemaFileBrowser)
-from .bevy_components.registry.ui import (BEVY_COMPONENTS_PT_Configuration, BEVY_COMPONENTS_PT_AdvancedToolsPanel, BEVY_COMPONENTS_PT_MissingTypesPanel, MISSING_TYPES_UL_List)
-
-from .bevy_components.components.metadata import (ComponentMetadata, ComponentsMeta)
+from .bevy_components.components.operators import (
+    CopyComponentOperator, Fix_Component_Operator, OT_rename_component, 
+    RemoveComponentFromAllObjectsOperator, RemoveComponentOperator, 
+    GenerateComponent_From_custom_property_Operator, PasteComponentOperator, 
+    AddComponentOperator, RenameHelper, Toggle_ComponentVisibility
+)
+from .bevy_components.registry.registry import ComponentsRegistry, MissingBevyType
+from .bevy_components.registry.operators import (
+    COMPONENTS_OT_REFRESH_CUSTOM_PROPERTIES_ALL, COMPONENTS_OT_REFRESH_CUSTOM_PROPERTIES_CURRENT, 
+    COMPONENTS_OT_REFRESH_PROPGROUPS_FROM_CUSTOM_PROPERTIES_ALL, COMPONENTS_OT_REFRESH_PROPGROUPS_FROM_CUSTOM_PROPERTIES_CURRENT, 
+    OT_select_component_name_to_replace, OT_select_object, ReloadRegistryOperator, OT_OpenSchemaFileBrowser
+)
+from .bevy_components.registry.ui import (
+    BEVY_COMPONENTS_PT_Configuration, BEVY_COMPONENTS_PT_AdvancedToolsPanel, 
+    BEVY_COMPONENTS_PT_MissingTypesPanel, MISSING_TYPES_UL_List
+)
+from .bevy_components.components.metadata import ComponentMetadata, ComponentsMeta
 from .bevy_components.components.lists import GENERIC_LIST_OT_actions, Generic_LIST_OT_AddItem, Generic_LIST_OT_RemoveItem, Generic_LIST_OT_SelectItem
 from .bevy_components.components.maps import GENERIC_MAP_OT_actions
-from .bevy_components.components.definitions_list import (ComponentDefinitionsList, ClearComponentDefinitionsList)
-from .bevy_components.components.ui import (BEVY_COMPONENTS_PT_ComponentsPanel)
+from .bevy_components.components.definitions_list import ComponentDefinitionsList, ClearComponentDefinitionsList
+from .bevy_components.components.ui import BEVY_COMPONENTS_PT_ComponentsPanel
 
 # auto export
 from .gltf_auto_export import gltf_post_export_callback
@@ -48,16 +57,13 @@ from .blueprints.operators import OT_select_blueprint
 # blenvy core
 from .core.blenvy_manager import BlenvyManager
 from .core.operators import OT_switch_bevy_tooling
-from .core.scene_helpers import (SceneSelector)
-from .core.ui.ui import (BLENVY_PT_SidePanel)
+from .core.scene_helpers import SceneSelector
+from .core.ui.ui import BLENVY_PT_SidePanel
 from .core.ui.scenes_list import SCENES_LIST_OT_actions, SCENE_UL_Blenvy
 from .core.ui.folder_browser import OT_OpenAssetsFolderBrowser
 
-
-# this needs to be here, as it is how Blender's gltf exporter callbacks are defined, at the add-on root level
 def glTF2_post_export_callback(data):
     gltf_post_export_callback(data)
-    
 
 classes = [
     # common/core
@@ -102,7 +108,6 @@ classes = [
     
     BEVY_COMPONENTS_PT_ComponentsPanel,
     BEVY_COMPONENTS_PT_AdvancedToolsPanel,
-    #BEVY_COMPONENTS_PT_Configuration,
     MISSING_TYPES_UL_List,
     BEVY_COMPONENTS_PT_MissingTypesPanel,
 
@@ -135,23 +140,25 @@ classes = [
     GLTF_PT_auto_export_blueprints_list,
 ]
 
-
 @persistent
 def post_update(scene, depsgraph):
-    bpy.context.window_manager.auto_export_tracker.deps_post_update_handler( scene, depsgraph)
+    bpy.context.window_manager.auto_export_tracker.deps_post_update_handler(scene, depsgraph)
 
 @persistent
 def post_save(scene, depsgraph):
-    bpy.context.window_manager.auto_export_tracker.save_handler( scene, depsgraph)
+    bpy.context.window_manager.auto_export_tracker.save_handler(scene, depsgraph)
 
 @persistent
 def post_load(file_name):
     registry = bpy.context.window_manager.components_registry
-    if registry  is not None:
+    if registry is not None:
         registry.load_settings()
     blenvy = bpy.context.window_manager.blenvy
     if blenvy is not None:
         blenvy.load_settings()
+    
+    # Initialize blueprint data after Blender has fully loaded
+    BlueprintsRegistry.initialize_blueprints_data()
 
 def register():
     for cls in classes:
@@ -168,3 +175,6 @@ def unregister():
     bpy.app.handlers.load_post.remove(post_load)
     bpy.app.handlers.depsgraph_update_post.remove(post_update)
     bpy.app.handlers.save_post.remove(post_save)
+
+if __name__ == "__main__":
+    register()

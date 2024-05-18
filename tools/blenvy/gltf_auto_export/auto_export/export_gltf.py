@@ -68,10 +68,15 @@ def generate_gltf_export_preferences(addon_prefs):
             gltf_export_preferences[key] =  standard_gltf_exporter_settings.get(key)
     return gltf_export_preferences
 
+def get_valid_gltf_export_keys():
+    """Retrieve the valid keys for the glTF export operator."""
+    op = bpy.ops.export_scene.gltf
+    return op.get_rna_type().properties.keys()
 
-#https://docs.blender.org/api/current/bpy.ops.export_scene.html#bpy.ops.export_scene.gltf
-def export_gltf (path, export_settings):
-    settings = {**export_settings, "filepath": path}
-    # print("export settings",settings)
+def export_gltf(path, export_settings):
+    valid_keys = get_valid_gltf_export_keys()
+    settings = {key: export_settings[key] for key in export_settings if key in valid_keys}
+    settings["filepath"] = path
+    
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    #bpy.ops.export_scene.gltf(**settings)
+    bpy.ops.export_scene.gltf(**settings)

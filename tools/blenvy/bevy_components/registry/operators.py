@@ -195,7 +195,7 @@ class OT_OpenSchemaFileBrowser(Operator, ImportHelper):
         registry.schemaPath = relative_path
 
         blenvy = context.window_manager.blenvy
-        upsert_settings(blenvy.settings_save_path, {"components_schemaPath": relative_path})
+        upsert_settings(blenvy.settings_save_path, {"schemaPath": relative_path})
         
         return {'FINISHED'}
     

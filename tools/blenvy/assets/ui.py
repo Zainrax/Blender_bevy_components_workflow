@@ -73,7 +73,6 @@ class Blenvy_assets(bpy.types.Panel):
 
         asset_registry = context.window_manager.assets_registry
         blueprints_registry = context.window_manager.blueprints_registry
-        blueprints_registry.add_blueprints_data()
         blueprints_data = blueprints_registry.blueprints_data
 
         name = "world"
