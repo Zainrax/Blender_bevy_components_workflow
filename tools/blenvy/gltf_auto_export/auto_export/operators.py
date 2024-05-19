@@ -84,19 +84,23 @@ class AutoExportGLTF(Operator, AutoExportGltfAddonPreferences):
 
     def save_settings(self, context):
         auto_export_settings = self.format_settings()
-        stored_settings = bpy.data.texts.get(
-            ".gltf_auto_export_settings",
-            bpy.data.texts.new(".gltf_auto_export_settings"),
-        )
+        settings_name = ".gltf_auto_export_settings"
+        stored_settings = bpy.data.texts.get(settings_name) or bpy.data.texts.new(settings_name)
+        
         stored_settings.clear()
-        auto_export_settings = generate_complete_preferences_dict_auto(
-            auto_export_settings
-        )
-        stored_settings.write(json.dumps(auto_export_settings, indent=4))
-        print("Saved settings", auto_export_settings)
+        auto_export_settings = generate_complete_preferences_dict_auto(auto_export_settings)
+        
+        # Avoid duplicating settings
+        current_settings = json.loads(stored_settings.as_string()) if stored_settings.as_string() else {}
+        current_settings.update(auto_export_settings)
+        
+        stored_settings.write(json.dumps(current_settings, indent=4))
+        print("Saved settings", current_settings)
 
     def load_settings(self, context):
-        settings_text = bpy.data.texts.get(".gltf_auto_export_settings")
+        settings_name = ".gltf_auto_export_settings"
+        settings_text = bpy.data.texts.get(settings_name)
+        
         if settings_text:
             try:
                 settings = json.loads(settings_text.as_string())
@@ -105,21 +109,14 @@ class AutoExportGLTF(Operator, AutoExportGltfAddonPreferences):
                 self.will_save_settings = True
             except Exception as error:
                 print("Error loading settings:", error)
-                self.report(
-                    {"ERROR"},
-                    "Loading export settings failed. Removed corrupted settings.",
-                )
+                self.report({"ERROR"}, "Loading export settings failed. Removed corrupted settings.")
                 bpy.data.texts.remove(settings_text)
         else:
             self.will_save_settings = True
 
     def did_export_settings_change(self):
-        previous_auto_settings = bpy.data.texts.get(
-            ".gltf_auto_export_settings_previous"
-        )
-        previous_gltf_settings = bpy.data.texts.get(
-            ".gltf_auto_export_gltf_settings_previous"
-        )
+        previous_auto_settings = bpy.data.texts.get(".gltf_auto_export_settings_previous")
+        previous_gltf_settings = bpy.data.texts.get(".gltf_auto_export_gltf_settings_previous")
         current_auto_settings = bpy.data.texts.get(".gltf_auto_export_settings")
         current_gltf_settings = bpy.data.texts.get(".gltf_auto_export_gltf_settings")
 
@@ -131,22 +128,14 @@ class AutoExportGLTF(Operator, AutoExportGltfAddonPreferences):
         previous_gltf_dict = json.loads(previous_gltf_settings.as_string())
         current_gltf_dict = json.loads(current_gltf_settings.as_string())
 
-        auto_settings_changed = sorted(previous_auto_dict.items()) != sorted(
-            current_auto_dict.items()
-        )
-        gltf_settings_changed = sorted(previous_gltf_dict.items()) != sorted(
-            current_gltf_dict.items()
-        )
+        auto_settings_changed = sorted(previous_auto_dict.items()) != sorted(current_auto_dict.items())
+        gltf_settings_changed = sorted(previous_gltf_dict.items()) != sorted(current_gltf_dict.items())
 
         if auto_settings_changed or gltf_settings_changed:
             bpy.data.texts[".gltf_auto_export_settings_previous"].clear()
-            bpy.data.texts[".gltf_auto_export_settings_previous"].write(
-                json.dumps(current_auto_dict, indent=4)
-            )
+            bpy.data.texts[".gltf_auto_export_settings_previous"].write(json.dumps(current_auto_dict, indent=4))
             bpy.data.texts[".gltf_auto_export_gltf_settings_previous"].clear()
-            bpy.data.texts[".gltf_auto_export_gltf_settings_previous"].write(
-                json.dumps(current_gltf_dict, indent=4)
-            )
+            bpy.data.texts[".gltf_auto_export_gltf_settings_previous"].write(json.dumps(current_gltf_dict, indent=4))
 
         return auto_settings_changed or gltf_settings_changed
 
@@ -166,9 +155,7 @@ class AutoExportGLTF(Operator, AutoExportGltfAddonPreferences):
         previous_scene_text = bpy.data.texts.get(".scene_serialized")
         if not previous_scene_text:
             previous_scene_text = bpy.data.texts.new(".scene_serialized")
-            previous_scene_text.write(
-                json.dumps(current_scene_data, indent=4)
-            )
+            previous_scene_text.write(json.dumps(current_scene_data, indent=4))
             return {}
 
         previous_scene_data = json.loads(previous_scene_text.as_string())
@@ -194,10 +181,7 @@ class AutoExportGLTF(Operator, AutoExportGltfAddonPreferences):
             params_changed = self.did_export_settings_change()
             auto_export(changes_per_scene, params_changed, blenvy)
             bpy.context.window_manager.auto_export_tracker.clear_changes()
-            bpy.app.timers.register(
-                bpy.context.window_manager.auto_export_tracker.enable_change_detection,
-                first_interval=0.1,
-            )
+            bpy.app.timers.register(bpy.context.window_manager.auto_export_tracker.enable_change_detection, first_interval=0.1)
         else:
             print("Auto export disabled, skipping")
 
@@ -206,12 +190,15 @@ class AutoExportGLTF(Operator, AutoExportGltfAddonPreferences):
     def invoke(self, context, event):
         bpy.context.window_manager.auto_export_tracker.disable_change_detection()
         self.load_settings(context)
-        return context.window_manager.invoke_props_dialog(
-            self, title="Auto export", width=640
-        )
+        return context.window_manager.invoke_props_dialog(self, title="Auto export", width=640)
 
     def cancel(self, context):
-        bpy.app.timers.register(
-            bpy.context.window_manager.auto_export_tracker.enable_change_detection,
-            first_interval=1,
-        )
+        bpy.app.timers.register(bpy.context.window_manager.auto_export_tracker.enable_change_detection, first_interval=1)
+
+
+def register():
+    bpy.utils.register_class(AutoExportGLTF)
+
+
+def unregister():
+    bpy.utils.unregister_class(AutoExportGLTF)
