@@ -44,16 +44,10 @@ class BLENVY_PT_SidePanel(bpy.types.Panel):
         library_scene_active = False
         active_collection = context.collection
 
-        """current_auto_settings = load_settings(".gltf_auto_export_settings")
-        current_gltf_settings = load_settings(".gltf_auto_export_gltf_settings")
-        
-        if current_auto_settings is not None:
-            #print("current_auto_settings", current_auto_settings)
-            main_scene_names = current_auto_settings["main_scene_names"]
-            library_scene_names = current_auto_settings["library_scene_names"]
-
-            world_scene_active = context.scene.name in main_scene_names
-            library_scene_active = context.scene.name in library_scene_names"""
+        """print("BLA", blenvy.assets_path_full)
+        print("BLA", blenvy.blueprints_path_full)
+        print("BLA", blenvy.levels_path_full)
+        print("BLA", blenvy.materials_path_full)"""
 
         # Now to actual drawing of the UI
         target = row.box() if active_mode == 'COMPONENTS' else row
@@ -98,8 +92,6 @@ class BLENVY_PT_SidePanel(bpy.types.Panel):
                 draw_folder_browser(layout=row, label="Materials Folder", prop_origin=blenvy, target_property="materials_path")
 
                 panel.separator()
-
-
                 # scenes selection
                 if len(blenvy.main_scenes) == 0 and len(blenvy.library_scenes) == 0:
                     row = panel.row()
@@ -108,7 +100,6 @@ class BLENVY_PT_SidePanel(bpy.types.Panel):
                     row.label(text="NO library or main scenes specified! at least one main scene or library scene is required!")
                     row = panel.row()
                     row.label(text="Please select and add one using the UI below")
-
 
                 section = panel
                 rows = 2

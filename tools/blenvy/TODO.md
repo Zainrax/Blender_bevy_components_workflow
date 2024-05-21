@@ -9,6 +9,7 @@ Auto export
      - root path => relative to blend file path
      - asset path => relative to root path
      - blueprints/levels/blueprints path => relative to assets path
+ - [ ] add error handling for de/serialization of project, so that in case of error, the previous saved serialized project is thrown away
 
 
 - move out some parameters from auto export to a higher level (as they are now used in multiple places)
@@ -37,8 +38,7 @@ Assets:
         - QUESTION : do we want to include them in the list of assets per level ? 
             -  this would enable pre-loading ALL the assets, but is not ideal in most other cases
             - so add an option ?
-        - [] the assets of local blueprints 
-
+        - [ ] the assets of local blueprints 
 
 Blueprints:
     - [x] on save: write IN THE COLLECTION PROPERTIES
@@ -50,14 +50,32 @@ Blueprints:
     - [ ] scan & inject on save
     - [ ] decide where & when to do & store blueprints data
 
+Components:
+    - [x] add support for adding components to collections
+    - [ ] upgrade all operators:
+        - [x] add 
+        - [x] remove
+        - [x] copy & paste
+        - [ ] OT_rename_component
+        - [ ] Fix_Component_Operator
+    - [ ] add handling for core::ops::Range<f32> & other ranges
+    - [ ] fix is_component_valid that is used in gltf_auto_export
+    - Hashmap Support
+        - [x] fix parsing of keys's type either on Bevy side (prefered) or on the Blender side 
+        - [x] fix weird issue with missing "0" property when adding new entry in empty hashmap => happens only if the values for the "setter" have never been set
+        - [ ] handle missing types in registry for keys & values
+
+    - [ ] Add correct upgrade handling from individual component to bevy_components
+
+
 General things to solve:
  - [x] save settings
  - [x] load settings
     - [ ] add_blueprints_data
 
-- [ ] rename all path stuff using the old naming convention : "export_blueprints_path_full"
-- [ ] generate the full paths directly when setting them in the UI  
-    - [ ] problem : how to deal with defaults: do it on start/load ?
+- [x] rename all path stuff using the old naming convention : "blueprints_path_full"
+- [x] generate the full paths directly when setting them in the UI  
+    - [x] problem : how to deal with defaults: do it on start/load ?
 
 General issues:
  - there is no safeguard for naming collisions for naming across blender files
@@ -65,3 +83,4 @@ General issues:
  - "parents" can only be blueprints
     - they normally need/have unique export paths (otherwise, user error, perhaps show it ?)
     - perhaps a simple hashing of the parent's path would be enought 
+ - addon-prefs => settings

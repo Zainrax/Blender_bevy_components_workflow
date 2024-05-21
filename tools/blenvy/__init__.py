@@ -17,8 +17,7 @@ from bpy.props import StringProperty
 
 # components management 
 from .bevy_components.components.operators import (
-    CopyComponentOperator, Fix_Component_Operator, OT_rename_component, 
-    RemoveComponentFromAllObjectsOperator, RemoveComponentOperator, 
+    CopyComponentOperator, Fix_Component_Operator, OT_rename_component, RemoveComponentOperator, 
     GenerateComponent_From_custom_property_Operator, PasteComponentOperator, 
     AddComponentOperator, RenameHelper, Toggle_ComponentVisibility
 )
@@ -33,6 +32,13 @@ from .bevy_components.registry.ui import (
     BEVY_COMPONENTS_PT_MissingTypesPanel, MISSING_TYPES_UL_List
 )
 from .bevy_components.components.metadata import ComponentMetadata, ComponentsMeta
+from .bevy_components.components.operators import CopyComponentOperator, Fix_Component_Operator, OT_rename_component, RemoveComponentFromAllItemsOperator, RemoveComponentOperator, GenerateComponent_From_custom_property_Operator, PasteComponentOperator, AddComponentOperator, RenameHelper, Toggle_ComponentVisibility
+
+from .bevy_components.registry.registry import ComponentsRegistry,MissingBevyType
+from .bevy_components.registry.operators import (COMPONENTS_OT_REFRESH_CUSTOM_PROPERTIES_ALL, COMPONENTS_OT_REFRESH_CUSTOM_PROPERTIES_CURRENT, COMPONENTS_OT_REFRESH_PROPGROUPS_FROM_CUSTOM_PROPERTIES_ALL, COMPONENTS_OT_REFRESH_PROPGROUPS_FROM_CUSTOM_PROPERTIES_CURRENT, OT_select_component_name_to_replace, OT_select_object, ReloadRegistryOperator, OT_OpenSchemaFileBrowser)
+from .bevy_components.registry.ui import (BEVY_COMPONENTS_PT_Configuration, BEVY_COMPONENTS_PT_AdvancedToolsPanel, BEVY_COMPONENTS_PT_MissingTypesPanel, MISSING_TYPES_UL_List)
+
+from .bevy_components.components.metadata import (ComponentMetadata, ComponentsMeta)
 from .bevy_components.components.lists import GENERIC_LIST_OT_actions, Generic_LIST_OT_AddItem, Generic_LIST_OT_RemoveItem, Generic_LIST_OT_SelectItem
 from .bevy_components.components.maps import GENERIC_MAP_OT_actions
 from .bevy_components.components.definitions_list import ComponentDefinitionsList, ClearComponentDefinitionsList
@@ -60,7 +66,7 @@ from .core.operators import OT_switch_bevy_tooling
 from .core.scene_helpers import SceneSelector
 from .core.ui.ui import BLENVY_PT_SidePanel
 from .core.ui.scenes_list import SCENES_LIST_OT_actions, SCENE_UL_Blenvy
-from .core.ui.folder_browser import OT_OpenAssetsFolderBrowser
+from .core.ui.assets_folder_browser import OT_OpenAssetsFolderBrowser
 
 def glTF2_post_export_callback(data):
     gltf_post_export_callback(data)
@@ -80,7 +86,7 @@ classes = [
     CopyComponentOperator,
     PasteComponentOperator,
     RemoveComponentOperator,
-    RemoveComponentFromAllObjectsOperator,
+    RemoveComponentFromAllItemsOperator,
     Fix_Component_Operator,
     OT_rename_component,
     RenameHelper,
